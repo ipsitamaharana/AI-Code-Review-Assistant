@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const fs = require("fs");
 
 const uploadCodeSubmission = async (req, res) => {
     try {
@@ -10,31 +11,60 @@ const uploadCodeSubmission = async (req, res) => {
     language,
     pasted_code
 } = req.body;
+
+const uploadedFile = req.file;
+let fileContent = null;
+
+if (uploadedFile) {
+    fileContent = fs.readFileSync(uploadedFile.path, "utf8");
+}
+
 const user_id = req.user.id;
 
- if (!title || !submission_type || !language || !pasted_code) {
+if (!title || !submission_type || !language) {
     return res.status(400).json({
-        message: "All fields are required"
+        message: "Title, submission type, and language are required"
     });
 }
 
-        const { data, error } = await supabase
+if (!pasted_code && !uploadedFile) {
+    return res.status(400).json({
+        message: "Please provide either pasted code or upload a code file"
+    });
+}
+
+     const { data, error } = await supabase
     .from("submissions")
     .insert([
-    {
-        user_id,
-        title,
-        submission_type,
-        language,
-        pasted_code
-    }
-])
-    .select();
+        {
+            user_id,
+            title,
+            submission_type,
+            language,
+            pasted_code
+        }
+    ])
+    .select()
+    .single();  
 
-if (error) {
-    return res.status(500).json({
-        message: error.message
-    });
+if (uploadedFile) {
+    const { error: fileError } = await supabase
+        .from("submission_files")
+        .insert([
+            {
+                submission_id: data.id,
+                file_name: uploadedFile.originalname,
+                file_extension: uploadedFile.originalname.split(".").pop(),
+                language,
+                file_content: fileContent
+            }
+        ]);
+
+    if (fileError) {
+        return res.status(500).json({
+            message: fileError.message
+        });
+    }
 }
 
 res.status(201).json({
