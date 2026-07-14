@@ -1,5 +1,5 @@
 const supabase = require("../config/supabase");
-
+const { analyzeCode } = require("../services/staticAnalysisService");
 const prepareReview = async (req, res) => {
   try {
     const { submissionId } = req.params;
@@ -31,11 +31,16 @@ if (fileError || fileData.length === 0) {
     message: "Submitted file not found",
   });
 }
+const analysisResult = await analyzeCode(
+  fileData[0].file_content,
+  fileData[0].language
+);
 
     return res.status(200).json({
   message: "Submission fetched successfully",
   submission,
   file: fileData[0],
+  analysis: analysisResult,
 });
   } catch (err) {
     console.error(err);
